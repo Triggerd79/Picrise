@@ -1,7 +1,9 @@
 import { Lato } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import { dark } from '@clerk/themes';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import Sidebar from '@/components/Sidebar';
+import BottomBar from '@/components/Bottombar';
 import './globals.css';
 
 // Configure the font
@@ -27,14 +29,23 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={lato.variable}>
-      <body className="antialiased min-h-screen flex flex-col">
-        <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark,
+      }}
+    >
+      <html lang="en" className={lato.variable}>
+        <body className="antialiased min-h-screen flex flex-col">
           <Navbar />
-          {children}
-          <Footer />
-        </ClerkProvider>
-      </body>
-    </html>
+          <main className="flex flex-row">
+            <Sidebar />
+            <section className="flex min-h-screen flex-1 flex-col items-center bg-dark-1 px-6 pb-10 pt-28 max-md:pb-32 sm:px-10">
+              <div className="w-full max-w-4xl">{children}</div>
+            </section>
+          </main>
+          <BottomBar />
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
