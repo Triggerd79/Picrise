@@ -1,72 +1,55 @@
-'use client';
+import Post from '@/components/Post';
+import {
+  serializeMongoPostObject,
+  serializeMongoUserObject,
+} from '@/lib/utils';
+import Pagination from '@/components/Pagination';
+import { fetchLatestPosts } from '@/lib/actions/post.action';
+import { currentUser } from '@clerk/nextjs/server';
+import { fetchUser } from '@/lib/actions/user.action';
 
-import Feed from '@/components/Feed';
-import { Button } from '@/components/ui/Button';
-import { SignedIn, SignedOut, useUser } from '@clerk/nextjs';
-import { Upload } from 'lucide-react';
-import Link from 'next/link';
+async function Home({ searchParams }) {
+  const { page } = await searchParams;
+  const res = await fetchLatestPosts(page ? +page : 1, 20);
+  const posts = res.posts;
+  const user = await currentUser();
+  let mongoUser = null;
 
-export default function Home() {
-  const { user } = useUser();
+  if (user) {
+    mongoUser = await fetchUser(user.id);
+  }
 
-  const SAMPLE_POSTS = [
-    // ai generated
-    {
-      id: 1,
-      user: {
-        name: 'Sarah Chen',
-        username: 'sarahchen',
-        avatar:
-          'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400',
-      },
-      image:
-        'https://images.unsplash.com/photo-1686191128892-3e72b544f8e3?w=800',
-      prompt:
-        'A surreal landscape with floating islands and bioluminescent plants',
-      likes: 234,
-      comments: 42,
-    },
-    {
-      id: 2,
-      user: {
-        name: 'Alex Rivera',
-        username: 'alexr',
-        avatar:
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400',
-      },
-      image:
-        'https://images.unsplash.com/photo-1686754118153-a667fa3fb5b5?w=800',
-      prompt: 'Cyberpunk city at night with neon lights and flying vehicles',
-      likes: 567,
-      comments: 89,
-    },
-  ];
+  if (res && res.posts?.length === 0) {
+    return (
+      <>
+        <h1 className="text-heading2-bold text-light-1 text-left">Home</h1>
+        <p className="text-center !text-base-regular text-light-3 ">
+          No posts found
+        </p>
+      </>
+    );
+  }
 
   return (
-    <main className="container mx-auto px-4">
-      <section className="mb-12 text-center mt-4">
-        <h1 className="mb-4 text-4xl font-bold tracking-tight">
-          Welcome to Picrise
-        </h1>
-        <p className="mb-6 text-lg text-muted-foreground">
-          Share and discover amazing AI-generated artwork with a creative
-          community
-        </p>
-        <Button size="lg" className="gap-2" asChild>
-          {user ? (
-            <Link href="/upload">
-              <Upload />
-              Share Your Art
-            </Link>
-          ) : (
-            <Link href="/sign-up">
-              <Upload />
-              Join to Share
-            </Link>
-          )}
-        </Button>
+    <>
+      <h1 className="text-heading2-bold text-light-1 text-left">Home</h1>
+
+      <section className="mt-9 flex flex-col gap-10">
+        {posts.map((post) => {
+          post = serializeMongoPostObject(post);
+          return (
+            <Post
+              key={post._id.toString()}
+              post={post}
+              currentUser={serializeMongoUserObject(mongoUser)}
+            />
+          );
+        })}
       </section>
-      <Feed posts={SAMPLE_POSTS} />
-    </main>
+
+      <Pagination path="/" pageNumber={page ? +page : 1} isNext={res.isNext} />
+    </>
   );
 }
+
+export default Home;

@@ -6,13 +6,26 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ImagePlus, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import toast, { Toaster } from 'react-hot-toast';
+import { Toaster } from 'react-hot-toast';
+import { createPost } from '@/lib/actions/post.action';
+import { useUser } from '@clerk/nextjs';
+import { notify } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 export default function UploadPage() {
+  const router = useRouter();
+
   const [imagePreview, setImagePreview] = useState(null);
   const [prompt, setPrompt] = useState('');
   const [caption, setCaption] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+
+  const { isLoaded, user } = useUser();
+
+  if (isLoaded) {
+    const { id } = user;
+    var userId = id;
+  }
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
@@ -21,18 +34,19 @@ export default function UploadPage() {
       const maxSize = 5 * 1024 * 1024; // 5MB
 
       if (!validTypes.includes(file.type)) {
-        notify(
-          'Unsupported file type. Please upload a PNG, JPG image.',
-          'error',
-        );
+        notify({
+          message: 'Unsupported file type. Please upload a PNG, JPG image.',
+          success: false,
+        });
         return;
       }
 
       if (file.size > maxSize) {
-        notify(
-          'File size exceeds the 5MB limit. Please upload a smaller file.',
-          'error',
-        );
+        notify({
+          message:
+            'File size exceeds the 5MB limit. Please upload a smaller file.',
+          success: false,
+        });
         return;
       }
 
@@ -49,20 +63,25 @@ export default function UploadPage() {
     setIsUploading(true);
 
     try {
-      // TODO: Implement actual upload logic
+      createPost({
+        ownerClerkId: userId,
+        image: imagePreview,
+        prompt,
+        caption,
+      });
 
       // Show success message
-      notify('Your creation has been shared! ', 'success');
+      notify({ message: 'Your creation has been shared!', success: true });
 
       // Reset form
       setImagePreview(null);
       setPrompt('');
       setCaption('');
+      router.push('/');
     } catch (error) {
-      console.error('Upload failed:', error);
-
       // Show error message
-      notify('Failed to share your creation. Please try again.', 'error');
+      console.log(error);
+      notify({ message: 'Failed to share your creation', success: false });
     } finally {
       setIsUploading(false);
     }
@@ -70,22 +89,6 @@ export default function UploadPage() {
 
   const clearImage = () => {
     setImagePreview(null);
-  };
-
-  const notify = (message, type = 'success') => {
-    toast(message, {
-      duration: 4000,
-      icon: type === 'success' ? '🎉' : type === 'error' ? '❌' : null,
-      style: {
-        border: `2px solid ${
-          type === 'success'
-            ? '#10B981'
-            : type === 'error'
-              ? '#EF4444'
-              : '#F59E0B'
-        }`,
-      },
-    });
   };
 
   return (
