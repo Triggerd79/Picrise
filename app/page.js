@@ -1,7 +1,7 @@
 'use client';
 
 import Feed from '@/components/Feed';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@/components/ui/button';
 import { SignedIn, SignedOut, useUser } from '@clerk/nextjs';
 import { Upload } from 'lucide-react';
 import Link from 'next/link';
