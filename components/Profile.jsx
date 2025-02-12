@@ -3,7 +3,11 @@ import { Card } from '@/components/ui/card';
 import { Users, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useAuth } from '@clerk/nextjs';
+
 const Profile = ({ user }) => {
+  const { userId } = useAuth();
+
   return (
     <>
       {/* Profile header */}
@@ -26,8 +30,8 @@ const Profile = ({ user }) => {
               <p className="text-base-medium text-gray-1">@{user.username}</p>
             </div>
           </div>
-          {
-            <Link href="/profile/edit">
+          {user.id === userId && (
+            <Link href="/user-profile">
               <div className="flex cursor-pointer gap-3 rounded-lg bg-dark-3 px-4 py-2">
                 <Image
                   src="/assets/edit.svg"
@@ -39,7 +43,7 @@ const Profile = ({ user }) => {
                 <p className="text-light-2 max-sm:hidden">Edit</p>
               </div>
             </Link>
-          }
+          )}
         </div>
 
         <p className="mt-6 max-w-lg text-base-regular text-light-2">
