@@ -3,10 +3,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useUser, SignedIn, SignedOut } from '@clerk/nextjs';
 
 import { sidebarLinks } from '@/constants';
 
 function BottomBar() {
+  const { user } = useUser();
   const pathname = usePathname();
 
   return (
@@ -37,6 +39,30 @@ function BottomBar() {
             </Link>
           );
         })}
+
+        <div>
+          <SignedIn>
+            <Link href={`/profile/${user?.id}`}>
+              <Image
+                className="rounded-full"
+                src={user?.imageUrl || '/assets/user.svg'}
+                alt="profile"
+                width={24}
+                height={24}
+              />
+            </Link>
+          </SignedIn>
+          <SignedOut>
+            <Link href={`/sign-in`}>
+              <Image
+                src={'/assets/user.svg'}
+                alt="profile"
+                width={16}
+                height={16}
+              />
+            </Link>
+          </SignedOut>
+        </div>
       </div>
     </section>
   );

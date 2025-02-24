@@ -28,6 +28,7 @@ export default function Post({ post, currentUser }) {
   useEffect(() => {
     if (!user) {
       setIsFollowing(false);
+      return;
     }
 
     if (post?.owner?.followers?.includes(user._id)) {
@@ -38,6 +39,7 @@ export default function Post({ post, currentUser }) {
   const followUserHandler = async () => {
     if (!user.id) {
       alert('Please Login First to perform this action');
+      return;
     }
     await followUser({
       userId: user.id,
@@ -49,6 +51,7 @@ export default function Post({ post, currentUser }) {
   const unfollowUserHandler = async () => {
     if (!user.id) {
       alert('Please Login First to perform this action');
+      return;
     }
     await unfollowUser({
       userId: user.id,
@@ -60,6 +63,7 @@ export default function Post({ post, currentUser }) {
   const handleLike = async () => {
     if (!user.id) {
       alert('Please Login First to perform this action');
+      return;
     }
     if (!isLiked) {
       await likeOrDislikePost({
@@ -160,15 +164,17 @@ export default function Post({ post, currentUser }) {
                     <Link href={`/profile/${post.owner.id}`}>Profile</Link>
                   </DropdownMenuItem>
 
-                  {isFollowing ? (
-                    <DropdownMenuItem onClick={unfollowUserHandler}>
-                      Unfollow
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={followUserHandler}>
-                      Follow
-                    </DropdownMenuItem>
-                  )}
+                  {post.owner.id !== user?.id &&
+                    (isFollowing ? (
+                      <DropdownMenuItem onClick={unfollowUserHandler}>
+                        Unfollow
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={followUserHandler}>
+                        Follow
+                      </DropdownMenuItem>
+                    ))}
+
                   {post.owner.id === user?.id && (
                     <>
                       <DropdownMenuSeparator />

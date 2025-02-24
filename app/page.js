@@ -41,7 +41,7 @@ async function Home({ searchParams }) {
             <Post
               key={post._id.toString()}
               post={post}
-              currentUser={serializeMongoUserObject(mongoUser)}
+              currentUser={user ? serializeMongoUserObject(mongoUser) : null}
             />
           );
         })}
