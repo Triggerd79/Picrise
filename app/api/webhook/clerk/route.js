@@ -47,35 +47,24 @@ export async function POST(req) {
     });
   }
 
-  const {
-    id,
-    first_name,
-    username,
-    has_image,
-    profile_image_url,
-    image_url,
-    email_addresses,
-  } = evt.data;
+  const { id, username, first_name, last_name, image_url, email_addresses } =
+    evt.data;
   const eventType = evt.type;
 
   // User created
   if (eventType === 'user.created' || eventType === 'user.updated') {
     await updateUser({
       userId: id,
-      name: first_name ? first_name : '',
+      firstName: first_name,
+      lastName: last_name,
       email: email_addresses[0].email_address,
-      username: username || '',
-      image: has_image
-        ? profile_image_url
-          ? profile_image_url
-          : image_url
-        : '',
+      username: username ?? id.toString().slice(0, 5) + id.toString().slice(-5),
+      image: image_url ?? '',
     });
   }
 
   // User deleted
   if (eventType === 'user.deleted') {
-    const id = evt.data.id;
     deleteUser(id);
   }
 
