@@ -1,41 +1,42 @@
 'use client';
 
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { ImagePlus, X } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Toaster } from 'react-hot-toast';
 import { createPost } from '@/lib/actions/post.action';
+import { notify, uploadImage } from '@/lib/utils';
 import { useUser } from '@clerk/nextjs';
-import { notify } from '@/lib/utils';
+import { ImagePlus, X } from 'lucide-react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { Toaster } from 'react-hot-toast';
 
 export default function UploadPage() {
   const router = useRouter();
 
-  const [imagePreview, setImagePreview] = useState(null);
-  const [prompt, setPrompt] = useState('');
-  const [caption, setCaption] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-
   const { isLoaded, user } = useUser();
 
+  const [imagePreview, setImagePreview] = useState(null);
+  const [caption, setCaption] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [image, setImage] = useState(null);
+
   if (isLoaded) {
-    const { id } = user;
-    var userId = id;
+    var { id } = user;
   }
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const validTypes = ['image/png', 'image/jpeg'];
+      const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
       const maxSize = 5 * 1024 * 1024; // 5MB
 
       if (!validTypes.includes(file.type)) {
         notify({
-          message: 'Unsupported file type. Please upload a PNG, JPG image.',
+          message:
+            'Unsupported file type. Please upload a PNG, JPG or WEBP image.',
           success: false,
         });
         return;
@@ -54,6 +55,7 @@ export default function UploadPage() {
       reader.onloadend = () => {
         setImagePreview(reader.result);
       };
+      setImage(file);
       reader.readAsDataURL(file);
     }
   };
@@ -62,26 +64,63 @@ export default function UploadPage() {
     e.preventDefault();
     setIsUploading(true);
 
+    if (!image) {
+      notify({ message: 'Please upload an image', success: false });
+      setIsUploading(false);
+      return;
+    }
+
+    // remove trailing spaces from caption
+    setCaption(caption.trim());
+
     try {
-      createPost({
-        ownerClerkId: userId,
-        image: imagePreview,
-        prompt,
+      const res = await uploadImage({
+        file: image,
+        name: caption ? caption : 'image',
+      });
+
+      if (!res.success) {
+        notify({
+          message: 'Failed to share your creation Image kit error ',
+          success: false,
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      const response = await createPost({
+        userId: id,
+        image: res.data.url,
+        fileId: res.data.fileId,
         caption,
       });
+
+      if (!response.success) {
+        console.log('Post creation error ');
+        notify({
+          message: 'Failed to share your creation Post creation error ',
+          success: false,
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      //   Reset form
+      setImagePreview(null);
+      setCaption('');
 
       // Show success message
       notify({ message: 'Your creation has been shared!', success: true });
 
-      // Reset form
-      setImagePreview(null);
-      setPrompt('');
-      setCaption('');
-      router.push('/');
+      // redirect to home
+      console.log(response);
+      router.push(`/post/${response.postId}`);
     } catch (error) {
-      // Show error message
       console.log(error);
-      notify({ message: 'Failed to share your creation', success: false });
+      notify({
+        message: 'Failed to share your creation Error ',
+        success: false,
+      });
     } finally {
       setIsUploading(false);
     }
@@ -104,15 +143,15 @@ export default function UploadPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           <Card className="p-6">
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">
-                AI-Generated Image
-              </label>
+              <label className="block text-sm font-medium mb-2">Image</label>
               {imagePreview ? (
                 <div className="relative">
-                  <img
+                  <Image
+                    width={100}
+                    height={100}
                     src={imagePreview}
                     alt="Preview"
-                    className="w-full rounded-lg object-cover aspect-[4/3]"
+                    className="w-full rounded-lg object-contain aspect-square"
                   />
                   <Button
                     type="button"
@@ -129,11 +168,10 @@ export default function UploadPage() {
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <ImagePlus className="h-12 w-12 mb-3 text-muted-foreground" />
                     <p className="mb-2 text-sm text-muted-foreground">
-                      <span className="font-semibold">Click to upload</span> or
-                      drag and drop
+                      <span className="font-semibold">Click to upload</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      PNG, JPG or GIF (MAX. 5MB)
+                      PNG, JPG or WEBP (MAX. 5MB)
                     </p>
                   </div>
                   <Input
@@ -149,28 +187,10 @@ export default function UploadPage() {
             <div className="space-y-4">
               <div>
                 <label
-                  htmlFor="prompt"
-                  className="block text-sm font-medium mb-2"
-                >
-                  Prompt Used
-                </label>
-                <Textarea
-                  id="prompt"
-                  placeholder="Enter the prompt you used to generate this image..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="resize-none"
-                  rows={3}
-                  required
-                />
-              </div>
-
-              <div>
-                <label
                   htmlFor="caption"
                   className="block text-sm font-medium mb-2"
                 >
-                  Caption (Optional)
+                  Caption
                 </label>
                 <Textarea
                   id="caption"
@@ -187,7 +207,7 @@ export default function UploadPage() {
           <Button
             type="submit"
             className="w-full"
-            disabled={!imagePreview || !prompt || isUploading}
+            disabled={!imagePreview || isUploading}
           >
             {isUploading ? 'Uploading...' : 'Share Creation'}
           </Button>
