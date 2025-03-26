@@ -1,12 +1,7 @@
 'use client';
-import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Toaster } from 'react-hot-toast';
-import { formatDate } from '@/lib/utils';
-import { followUser, unfollowUser } from '@/lib/actions/user.action';
-import { likeOrDislikePost, deletePost } from '@/lib/actions/post.action';
+import { Card } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,101 +9,120 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { deletePost, likeOrDislikePost } from '@/lib/actions/post.action';
+import { notify, deleteImage } from '@/lib/utils';
+import { MoreHorizontal } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { MoreHorizontal } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Toaster } from 'react-hot-toast';
 
-export default function Post({ post, currentUser }) {
-  const user = currentUser;
-  const [isFollowing, setIsFollowing] = useState(false);
+export default function Post({
+  _id,
+  owner_id, // owner mongo id
+  ownerName,
+  ownerImage,
+  ownerUsername,
+  image,
+  caption,
+  likes,
+  fileId,
+  createdAt,
+  User_id, // current logged in user's Mongo db doc id
+  UserId, // current logged in user's clerk id
+}) {
   const [isLiked, setIsLiked] = useState(false);
-
-  if (!post) return null;
+  const [deleted, setDeleted] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      setIsFollowing(false);
-      return;
+    if (likes?.includes(User_id)) {
+      setIsLiked(true);
     }
-
-    if (post?.owner?.followers?.includes(user._id)) {
-      setIsFollowing(true);
-    }
-  });
-
-  const followUserHandler = async () => {
-    if (!user.id) {
-      alert('Please Login First to perform this action');
-      return;
-    }
-    await followUser({
-      userId: user.id,
-      followedUserId: post.owner.id,
-    });
-    setIsFollowing(true);
-  };
-
-  const unfollowUserHandler = async () => {
-    if (!user.id) {
-      alert('Please Login First to perform this action');
-      return;
-    }
-    await unfollowUser({
-      userId: user.id,
-      unFollowedUserId: post.owner.id,
-    });
-    setIsFollowing(false);
-  };
+  }, [User_id]);
 
   const handleLike = async () => {
-    if (!user.id) {
+    if (!UserId) {
       alert('Please Login First to perform this action');
       return;
     }
-    if (!isLiked) {
-      await likeOrDislikePost({
-        postId: post._id,
-        liked: true,
-        userClerkId: user.id,
+
+    if (isLiked) {
+      const res = await likeOrDislikePost({
+        postId: _id,
+        userId: UserId,
       });
-      setIsLiked(true);
+
+      if (res.success) {
+        setIsLiked(false);
+      }
     } else {
-      await likeOrDislikePost({
-        postId: post._id,
-        liked: false,
-        userClerkId: user.id,
+      const res = await likeOrDislikePost({
+        postId: _id,
+        userId: UserId,
       });
-      setIsLiked(false);
+
+      if (res.success) {
+        setIsLiked(true);
+      }
     }
   };
 
   const deletePostHandler = async () => {
-    await deletePost({
-      postId: post._id,
-      ownerClerkId: user.id,
+    if (!UserId) {
+      alert('Please Login First to perform this action');
+      return;
+    }
+
+    // Delete Post doc from db
+    const res = await deletePost({
+      postId: _id,
+      userId: UserId,
     });
+
+    if (res.success) {
+      // Delete image from imagekit
+      const deleteImageResponse = await deleteImage({ fileId });
+
+      notify({
+        message: deleteImageResponse.success
+          ? 'Post deleted successfully'
+          : 'Failed to delete image',
+        success: deleteImageResponse.success,
+      });
+      setDeleted(true);
+    }
   };
 
   const handleShare = async () => {
+    if (!UserId) {
+      alert('Please Login First to perform this action');
+      return;
+    }
+
     if (navigator.share) {
       navigator
         .share({
           title: 'Check out this post!',
-          text: post.caption || 'Awesome post!',
-          url: window.location.href + 'post/' + post._id,
+          text: caption || 'Awesome post!',
+          url: window.location.href + 'post/' + _id,
         })
         .catch((error) => console.error('Error sharing post:', error));
     } else {
       alert('This sharing method is not supported on this browser.');
     }
   };
+
+  if (deleted) {
+    return null;
+  }
+
   return (
-    <>
+    <div className={`${deleted ? 'hidden' : ''}`}>
       <div>
         <Toaster />
       </div>
       <Card
-        key={post._id}
+        key={_id}
         className="overflow-hidden my-2 mx-auto w-full md:w-[70%]  dark"
       >
         <div className="p-4">
@@ -116,42 +130,23 @@ export default function Post({ post, currentUser }) {
             <div className="flex items-center gap-3">
               <Link
                 className="flex items-center gap-3"
-                href={`/profile/${post.owner.id}`}
+                href={`/profile/${owner_id}`}
               >
                 <Avatar>
-                  {post.owner.image ? (
-                    <AvatarImage src={post.owner.image} alt={post.owner.name} />
-                  ) : (
-                    <AvatarImage
-                      className="bg-dark-4 p-1"
-                      src="/assets/user.svg"
-                      alt={post.owner.name}
-                    />
-                  )}
-                  <AvatarImage src={post.owner.image} alt={post.owner.name} />
-                  <AvatarFallback>{post.owner.name}</AvatarFallback>
+                  <AvatarImage
+                    className={!ownerImage && 'bg-dark-4 p-1'}
+                    src={ownerImage ?? '/assets/user.svg'}
+                    alt={ownerName}
+                  />
+                  <AvatarFallback>{ownerName}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-semibold">{post.owner.name}</p>
+                  <p className="font-semibold">{ownerName}</p>
                   <p className="text-sm text-muted-foreground">
-                    @{post.owner.username}
+                    @{ownerUsername}
                   </p>
                 </div>
               </Link>
-
-              {post.owner.id !== user?.id && (
-                <div className=" max-sm:hidden opacity-20 font-thin">
-                  {isFollowing ? (
-                    <Button variant="ghost" onClick={unfollowUserHandler}>
-                      following
-                    </Button>
-                  ) : (
-                    <Button variant="ghost" onClick={followUserHandler}>
-                      Follow
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
 
             <div>
@@ -161,26 +156,15 @@ export default function Post({ post, currentUser }) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="dark">
                   <DropdownMenuItem>
-                    <Link href={`/profile/${post.owner.id}`}>Profile</Link>
+                    <Link href={`/profile/${owner_id}`}>Profile</Link>
                   </DropdownMenuItem>
 
-                  {post.owner.id !== user?.id &&
-                    (isFollowing ? (
-                      <DropdownMenuItem onClick={unfollowUserHandler}>
-                        Unfollow
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem onClick={followUserHandler}>
-                        Follow
-                      </DropdownMenuItem>
-                    ))}
-
-                  {post.owner.id === user?.id && (
+                  {owner_id === User_id && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem>
                         <Link
-                          href={`/post/edit/${post._id}`}
+                          href={`/post/edit/${_id}`}
                           className="flex items-center gap-2"
                         >
                           <Image
@@ -215,55 +199,41 @@ export default function Post({ post, currentUser }) {
         <Image
           width={100}
           height={100}
-          src={post.image}
-          alt={post.prompt}
+          src={image}
+          alt={caption ?? 'Image'}
+          quality={100}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 40vw"
           className="max-h-96 w-full object-contain bg-dark-4"
         />
         <div className="p-4">
-          <div className="flex gap-2">
-            <b>Prompt : </b>
-            <p className="mb-4 text-sm">{post.prompt}</p>
-          </div>
-          {post.caption && (
+          {caption && (
             <p className="mb-4 text-sm">
               <b>Caption : </b>
-              {post.caption}
+              {caption}
             </p>
           )}
 
           <div className="flex gap-4">
-            <Button variant="ghost" size="sm" onClick={handleLike}>
-              {isLiked ? (
-                <>
-                  <Image
-                    width={24}
-                    height={24}
-                    src={'/assets/heart-filled.svg'}
-                    alt="like"
-                  />
-                  <p>{post.likes + 1}</p>
-                </>
-              ) : (
-                <>
-                  <Image
-                    width={24}
-                    height={24}
-                    src={'/assets/heart.svg'}
-                    alt="like"
-                  />
-                  <p>{post.likes}</p>
-                </>
-              )}
+            <Button variant={'ghost'} size="sm" onClick={handleLike}>
+              <Image
+                width={24}
+                height={24}
+                src={isLiked ? '/assets/heart-filled.svg' : '/assets/heart.svg'}
+                alt="like"
+              />
+              <p>{isLiked ? likes.length + 1 : likes.length}</p>
             </Button>
 
-            {/* TODO: implement Commenting */}
+            {
+              // TODO: implement Commenting
+            }
 
             <Button variant="ghost" size="sm" onClick={handleShare}>
               <Image
                 width={24}
                 height={24}
                 src={'/assets/share.svg'}
-                alt="like"
+                alt="share"
               />
               Share
             </Button>
@@ -271,13 +241,11 @@ export default function Post({ post, currentUser }) {
         </div>
 
         <div className="px-4 py-2">
-          {post.createdAt && (
-            <p className="text-small-regular text-muted-foreground">
-              {formatDate(post.createdAt)}
-            </p>
+          {createdAt && (
+            <p className="text-[10px] text-muted-foreground">{createdAt}</p>
           )}
         </div>
       </Card>
-    </>
+    </div>
   );
 }
