@@ -1,6 +1,6 @@
 import Pagination from '@/components/Pagination';
 import Post from '@/components/Post';
-import PostSkeleton from '@/components/Skeletons/PostSkeleton';
+import PostSkeleton from '@/components/skeletons/PostSkeleton';
 import { fetchLatestPosts } from '@/lib/actions/post.action';
 import { fetchUser, updateUser } from '@/lib/actions/user.action';
 import { formatDate } from '@/lib/utils';
